@@ -13,7 +13,7 @@
  * CDDL HEADER END
 */
 /*
- * Copyright 2021 Saso Kiselkov. All rights reserved.
+ * Copyright 2023 Saso Kiselkov. All rights reserved.
  */
 
 #if	IBM
@@ -24,6 +24,17 @@
 
 #include "acfutils/apps.h"
 #include "acfutils/helpers.h"
+
+/**
+ * \fn bool_t lacf_open_URL(const char *)
+ * Given a URL, attempts to open it in the host operating system's
+ * preferred web browser.
+ * @param url A URL that can be passed on to a web browser.
+ * @return `B_TRUE` if launching the browser succeeded, `B_FALSE` otherwise.
+ *	This always succeeds on Windows. On macOS and Linux, this depends on
+ *	the return value of the shell command (`open` on macOS and `xdg-open`
+ *	on Linux).
+ */
 
 #if	IBM
 

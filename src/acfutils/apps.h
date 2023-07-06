@@ -20,8 +20,14 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2021 Saso Kiselkov. All rights reserved.
+ * Copyright 2023 Saso Kiselkov. All rights reserved.
  */
+/**
+ * \file
+ * The purpose of this module is to aggregate integration with 3rd party
+ * apps of the host OS.
+ */
+
 
 #ifndef	_ACF_UTILS_APPS_H_
 #define	_ACF_UTILS_APPS_H_
