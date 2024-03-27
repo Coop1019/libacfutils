@@ -32,7 +32,12 @@
 #include <windows.h>
 #endif	/* !APL && !LIN */
 
-#if	__STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
+#if	__STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__) && \
+    (!defined(__GNUC__) || __GNUC__ >= 7 || defined(__clang__))
+#define	_USE_STDATOMICS
+#endif
+
+#ifdef	_USE_STDATOMICS
 #include <stdatomic.h>
 #elif	APL
 #include <libkern/OSAtomic.h>
@@ -272,7 +277,7 @@ typedef struct {
  * @see VERIFY_MUTEX_NOT_HELD()
  * @see ASSERT_MUTEX_HELD()
  */
-#if	__STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
+#ifdef	_USE_STDATOMICS
 #define	atomic32_t		_Atomic int32_t
 #define	atomic_inc_32(x)	atomic_fetch_add((x), 1)
 #define	atomic_dec_32(x)	atomic_fetch_add((x), -1)
@@ -333,6 +338,12 @@ typedef pthread_cond_t condvar_t;
 #endif	/* !APL */
 #define	curthread_id		pthread_self()
 #define	curthread		pthread_self()
+
+static inline bool_t
+thread_equal(thread_id_t t1, thread_id_t t2)
+{
+	return (pthread_equal(t1, t2));
+}
 
 static inline void
 mutex_init(mutex_t *mtx)
@@ -453,8 +464,20 @@ typedef struct {
  */
 typedef CONDITION_VARIABLE condvar_t;
 
-#define	curthread_id	GetCurrentThreadId()
-#define	curthread	GetCurrentThread()
+#define	curthread_id			GetCurrentThreadId()
+#define	curthread			GetCurrentThread()
+
+/*
+ * Compares thread IDs in a platform-independent way.
+ * @return Returns true if thread ID `tid1` is equal to `tid2`. These
+ *	thread IDs are as returned by curthread_id().
+ * @see curthread_id
+ */
+static inline bool_t
+thread_equal(thread_id_t tid1, thread_id_t tid2)
+{
+	return (tid1 == tid2);
+}
 
 /**
  * Initializes a new mutex_t object. The mutex MUST be destroyed using
@@ -636,15 +659,7 @@ lacf_threads_fini(void)
 
 #if	APL || LIN
 
-UNUSED_ATTR static void *
-_lacf_thread_start_routine(void *arg)
-{
-	lacf_thread_info_t *ti = (lacf_thread_info_t *)arg;
-	ti->proc(ti->arg);
-	_lacf_thread_list_remove(ti);
-	free(ti);
-	return (NULL);
-}
+void *lacf_thread_start_routine(void *arg);
 
 WARN_UNUSED_RES_ATTR static inline bool_t
 lacf_thread_create(thread_t *thrp, void (*proc)(void *), void *arg,
@@ -658,7 +673,7 @@ lacf_thread_create(thread_t *thrp, void (*proc)(void *), void *arg,
 	ti->linenum = linenum;
 	_lacf_thread_list_init();
 	_lacf_thread_list_add(ti);
-	if (pthread_create(thrp, NULL, _lacf_thread_start_routine, ti) == 0) {
+	if (pthread_create(thrp, NULL, lacf_thread_start_routine, ti) == 0) {
 		/* Start success */
 		return (B_TRUE);
 	}
@@ -766,8 +781,8 @@ thread_set_prio(thread_t thr, int prio)
 static inline void
 thread_set_prio(thread_t thr, int prio)
 {
-	UNUSED(thr);
-	UNUSED(prio);
+	LACF_UNUSED(thr);
+	LACF_UNUSED(prio);
 }
 
 #endif	/* APL */
@@ -777,15 +792,7 @@ thread_set_prio(thread_t thr, int prio)
 /**
  * @note Internal. Do not call directly.
  */
-UNUSED_ATTR static DWORD
-_lacf_thread_start_routine(void *arg)
-{
-	lacf_thread_info_t *ti = (lacf_thread_info_t *)arg;
-	ti->proc(ti->arg);
-	_lacf_thread_list_remove(ti);
-	free(ti);
-	return (0);
-}
+DWORD lacf_thread_start_routine(void *arg);
 
 /**
  * Implementation of thread_create(). Do not call directly, use
@@ -804,7 +811,7 @@ lacf_thread_create(thread_t *thrp, void (*proc)(void *), void *arg,
 	ti->linenum = linenum;
 	_lacf_thread_list_init();
 	_lacf_thread_list_add(ti);
-	if ((*(thrp) = CreateThread(NULL, 0, _lacf_thread_start_routine, ti,
+	if ((*(thrp) = CreateThread(NULL, 0, lacf_thread_start_routine, ti,
 	    0, NULL)) != NULL) {
 		/* Start success */
 		return (B_TRUE);
@@ -844,7 +851,7 @@ thread_join(thread_t *thrp)
 static inline void
 thread_set_name(const char *name)
 {
-	UNUSED(name);
+	LACF_UNUSED(name);
 }
 
 /**
@@ -928,7 +935,7 @@ cv_init(condvar_t *cv)
 static inline void
 cv_destroy(condvar_t *cv)
 {
-	UNUSED(cv);
+	LACF_UNUSED(cv);
 }
 
 /**
